@@ -7,13 +7,21 @@ namespace AiSDLecture;
 // I - interface segregation principle
 // D - dependency inversion principle
 
+internal enum Department
+{
+    HR,
+    IT,
+    Sales,
+    Accounting
+}
+
 internal class Salary
 {
     public string EmployeeName { get; set; }
     
     public double Amount { get; set; }
     
-    public int Department { get; set; }
+    public Department Department { get; set; }
 }
 
 /// <summary>
@@ -22,51 +30,59 @@ internal class Salary
 ///   1 - IT
 ///   2 - Sales
 /// </summary>
-internal static class SomeProcessInTheCompany
+internal class SomeProcessInTheCompany
 {
-    private static double hrAmount = 0.0;
-    private static double itAmount = 0.0;
-    private static double salesAmount = 0.0;
-    
-    public static void Run()
+    private readonly ISalaryProvider _salaryProvider;
+    private readonly IPrinter _printer;
+
+    public SomeProcessInTheCompany(ISalaryProvider salaryProvider, IPrinter printer)
     {
-        // Get the salaries
-        var salaries = Database.GetSalaries();
+        _salaryProvider = salaryProvider;
+        _printer = printer;
+    }
+    
+    public void Run()
+    {
+        var salaries = _salaryProvider.GetSalaries();
+
+        var summary = CreateDictionary();
         
-        // Group salaries for each department
-        for (var i = 0; i < salaries.Count; i++)
+        foreach (var salary in salaries)
         {
-            if (salaries[i].Department == 0)
-            {
-                hrAmount += salaries[i].Amount;
-            }
-            else if (salaries[i].Department == 1)
-            {
-                itAmount += salaries[i].Amount;
-            }
-            else if (salaries[i].Department == 2)
-            {
-                salesAmount += salaries[i].Amount;
-            }
+            summary[salary.Department] += salary.Amount;
         }
         
-        // Create PDF file content
-        var pdfLines = new string[4];
-        
-        // Populate PDF lines
-        pdfLines[0] = ($"Department: HR; Amount: {hrAmount}");
-        pdfLines[1] = ($"Department: IT; Amount: {itAmount}");
-        pdfLines[2] = ($"Department: Sales; Amount: {salesAmount}");
-        pdfLines[3] = ($"Total: {hrAmount + itAmount + salesAmount}");
+        var pdfLines = new LinkedList<string>();
 
-        // Write PDF to file
-        PdfPrinter.Print(pdfLines);
+        foreach (var summaryEntry in summary)
+        {
+            pdfLines.AddLast($"Department: {summaryEntry.Key}; Amount: {summaryEntry.Value}");
+        }
+
+        var total = summary.Values.Sum();
+        pdfLines.AddLast($"Total: {total}");
+        
+        _printer.Print(pdfLines);
+        
+        // Send notification to sales
+        // ...
+    }
+
+    private static Dictionary<Department, double> CreateDictionary()
+    {
+        return Enum.GetValues<Department>()
+            .ToDictionary(department => department, department => 0.0);
     }
 }
 
-internal static class Database
+internal interface ISalaryProvider
 {
-    public static List<Salary> GetSalaries()
+    List<Salary> GetSalaries();
+}
+
+internal class Database : ISalaryProvider
+{
+    public List<Salary> GetSalaries()
     {
         return new List<Salary>
         {
@@ -74,33 +90,38 @@ internal static class Database
             {
                 EmployeeName = "Alice",
                 Amount = 5000,
-                Department = 0
+                Department = Department.HR
             },
             new Salary
             {
                 EmployeeName = "Bob",
                 Amount = 7890.12,
-                Department = 1
+                Department = Department.IT
             },
             new Salary
             {
                 EmployeeName = "Chris",
                 Amount = 12345.67,
-                Department = 0
+                Department = Department.Accounting
             }
         };
     }
 }
 
-internal static class PdfPrinter
+internal interface IPrinter
+{
+    void Print(IEnumerable<string> lines);
+}
+
+internal class PdfPrinter : IPrinter
 {
     // We fake the PDF here; just print to the console...
-    public static void Print(string[] lines)
+    public void Print(IEnumerable<string> lines)
     {
         // Print the lines to the PDF
-        for (var i = 0; i < lines.Length; i++)
+        foreach (var line in lines)
         {
-            Console.WriteLine(lines[i]);
+            Console.WriteLine(line);
         }
         
         // Notify the accounting

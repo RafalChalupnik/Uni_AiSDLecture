@@ -4,7 +4,8 @@ public static class Program
 {
     public static void Main(string[] args)
     {
-        SomeProcessInTheCompany.Run();
-        //StudentReport.Run();
+        // var process = new SomeProcessInTheCompany(new Database(), new PdfPrinter());
+        // process.Run();
+        StudentReport.Run();
     }
 }
